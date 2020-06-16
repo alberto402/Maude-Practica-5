@@ -1,0 +1,620 @@
+***(
+    Práctica 5: Nochevieja - Parejas
+    Asigntaura: Auditoría, Calidad y Fiabilidad Informáticas
+    Autores: Alberto Gutierrez Gallego y Daniel Parra Rodríguez
+
+)
+
+load model-checker.maude
+***(
+    Zonaresidencial(conjunto)
+persona(dinero,bolsa(hielo,refresco,alcohol),copas,estado,entrada,edad,nombre,)
+tienda(precio,cola,estado,hielo,refresco,alcohol)
+plazaMayor(conjunto,entradas,precio)
+local(listaOrdenada,conjunto,aforo,precioRefrescp, precioCopa)
+recreativos(conjunto)
+)
+
+fmod BOLSA is
+pr NAT .
+sort Bolsa .
+op bv : -> Bolsa [ctor] .
+***bolsa(hielo,refresco,alcohol)
+op bolsa(___) : Nat Nat Nat -> Bolsa [ctor] .
+endfm
+
+fmod PERSONAS is 
+pr NAT .
+pr BOLSA .
+pr STRING .
+sorts Persona Personas  .
+subsort Persona  < Personas .
+vars dinero dinero'  copas copas' edad' edad : Nat .
+vars estadoP estadoP' nombre nombre' : String .
+var bolsa bolsa' : Bolsa .
+var entrada entrada' : Bool .
+ op pv : -> Personas [ctor] .
+ ***persona(dinero,bolsa(hielo,refresco,alcohol),copas,estado,entrada,edad,nombre,)
+ op persona(_______) : Nat Bolsa Nat String Bool Nat String -> Persona [ctor] .
+ op _;_ : Personas Personas -> Personas [ctor assoc comm id: pv] .
+
+ op dinero(_) : Persona -> Nat .
+eq dinero(persona(dinero bolsa copas estadoP entrada edad nombre )) = dinero .
+
+op hidalgo : Persona -> Persona .
+ceq hidalgo(persona(dinero bolsa copas estadoP entrada edad nombre )) = persona(dinero bolsa copas "EBRIO" entrada edad nombre )
+if copas >= 4 .
+eq hidalgo(persona(dinero bolsa copas estadoP entrada edad nombre )) = persona(dinero bolsa copas estadoP entrada edad nombre ) [owise ].
+
+op jugar : Personas -> Personas .
+
+ceq jugar(persona(dinero bolsa copas estadoP entrada edad nombre ) ; persona(dinero' bolsa' copas' estadoP' entrada' edad' nombre' )) =
+persona(dinero bolsa copas "SATISFECHO" entrada edad nombre ) ; persona(dinero' bolsa' copas' "HUMILLADO" entrada' edad' nombre' ) 
+if copas < copas' . 
+
+ceq jugar(persona(dinero bolsa copas estadoP entrada edad nombre ) ; persona(dinero' bolsa' copas' estadoP' entrada' edad' nombre')) =
+persona(dinero bolsa copas "HUMILLADO" entrada edad nombre ) ; persona(dinero' bolsa' copas' "SATISFECHO" entrada' edad' nombre') 
+if copas > copas' . 
+
+ceq jugar(persona(dinero bolsa copas estadoP entrada edad nombre ) ; persona(dinero' bolsa' copas' estadoP' entrada' edad' nombre')) =
+persona(dinero bolsa copas "INDIFERENTE" entrada edad nombre ) ; persona(dinero' bolsa' copas' "INDIFERENTE" entrada' edad' nombre') 
+if copas == copas' [owise] . 
+
+endfm
+
+fmod COLA is
+pr PERSONAS .
+sort Cola .
+
+subsort Persona < Cola .
+op cv : -> Cola [ctor] .
+op cola(__) : Cola Cola -> Cola [ctor assoc id: cv ] .
+endfm
+
+fmod TIENDA is 
+pr COLA .
+sort Tienda .
+op tv : -> Tienda [ctor] .
+op tienda(______) : Nat Cola Bool Nat Nat Nat -> Tienda [ctor] .
+
+
+endfm
+
+fmod RESIDENCIAL is
+pr PERSONAS .
+
+sort Residencial .
+
+op rv : -> Residencial [ctor] .
+op residencial(_) : Personas -> Residencial [ctor] .
+
+endfm
+
+fmod PLAZAMAYOR is
+pr PERSONAS .
+sort PlazaMayor .
+
+op pmv : -> PlazaMayor [ctor] .
+op plazamayor(___) : Personas Nat Nat -> PlazaMayor [ctor ] .
+endfm
+
+fmod LISTA is
+ pr PERSONAS .
+
+ sorts Lista ListaOrd .
+ subsort Persona < ListaOrd < Lista .
+
+ op lv : -> ListaOrd [ctor] .
+ op __ : Lista Lista -> Lista [ctor assoc id: lv] .
+
+ vars P P' : Persona .
+ vars L L' : Lista .
+ var  LO : ListaOrd .
+
+ cmb P P' L : ListaOrd
+  if dinero(P) >= dinero(P') /\
+     P' L : ListaOrd .
+
+ op head : Lista ~> Persona .
+ eq head(P L) = P .
+
+ op tail : Lista ~> Lista .
+ eq tail(P L) = L .
+
+ op tam : Lista -> Nat .
+ eq tam(lv) = 0 .
+ eq tam(P L) = s(tam(L)) .
+
+ op esta? : Lista Persona -> Bool .
+ eq esta?(L P L', P) = true .
+ eq esta?(L, P) = false [owise] .
+
+ op ordena : Lista -> Lista .
+ ceq ordena(L P P' L') = ordena(L P' P L')
+  if dinero(P) < dinero(P') .
+ eq ordena(L) = L [owise] .
+
+ op inserta-ord : ListaOrd Persona -> ListaOrd .
+ eq inserta-ord(lv, P) = P .
+ eq inserta-ord(P L, P') = if dinero(P) >= dinero(P')
+                           then P inserta-ord(L, P')
+                           else P' P L
+                           fi .
+
+ op ordena-por-insercion : ListaOrd -> ListaOrd .
+ eq ordena-por-insercion(lv) = lv .
+ ceq ordena-por-insercion(P L) = inserta-ord(L', P)
+  if L' := ordena-por-insercion(L) .
+endfm
+
+fmod LOCAL is
+pr PERSONAS .
+pr LISTA .
+sort Local .
+***local(listaOrdenada,conjunto,aforo,aforomax,precioRefresco,PrecioCopa)
+op lov : -> Local .
+op local(______) : ListaOrd Personas Nat Nat Nat Nat -> Local [ctor] .
+
+endfm
+
+fmod RECREATIVOS is
+pr PERSONAS .
+sort Recreativos .
+op rcv : -> Recreativos .
+op recreativos(_) : Personas -> Recreativos [ctor].
+endfm
+
+***SISTEMA--------------------------------------------------------------------
+mod SISTEMA is 
+pr RECREATIVOS .
+pr LOCAL .
+pr PLAZAMAYOR .
+pr RESIDENCIAL .
+pr TIENDA .
+sort Sistema .
+***persona(dinero,bolsa(hielo,refresco,alcohol),copas,estado,entrada,edad,nombre,)
+***tienda(precio,cola,estado,hielo,refresco,alcohol)
+vars personasR personasP personasL personasJ personasL' : Personas .
+vars dinero dinero' copas copas' precioRefresco precioCopa edad edad'  precio hielo refresco alcohol hieloB hieloB' refrescoB refrescoB' alcoholB alcoholB' entradas precio2 aforo aforomax precioEntrada : Nat .
+vars estado nombre nombre' estadoP estadoP' : String .
+vars bolsa bolsa' : Bolsa .
+var entrada entrada' estadoT  : Bool .
+var tienda : Tienda .
+vars cola cola' : Cola .
+var residencial : Residencial .
+var plazaMayor : PlazaMayor .
+var local : Local .
+var colaLocal : ListaOrd .
+var recreativos : Recreativos .
+op sistema[_/_/_/_/_] : Residencial Tienda PlazaMayor Local Recreativos -> Sistema .
+
+****REGLAS
+crl [resindeicalTienda] : sistema[ residencial(persona(dinero bolsa copas "RELAJADO" entrada edad nombre ) ; personasR) / tienda(precio cola true hielo refresco alcohol) / plazaMayor / local / recreativos ]
+    => sistema[residencial(personasR) / tienda(precio cola( cola persona(dinero bolsa copas "RELAJADO" entrada edad nombre )) true hielo refresco alcohol) / plazaMayor / local / recreativos ]
+    if dinero >= precio .
+rl [resindeicalPlaza] : sistema[ residencial(persona(dinero bolsa copas "RELAJADO" entrada edad nombre ) ; personasR)  / tienda / plazamayor(personasP entradas precio)  / local / recreativos ]
+    => sistema[ residencial(personasR) / tienda / plazamayor( (persona(dinero bolsa copas "RELAJADO" entrada edad nombre ) ; personasP ) entradas precio)  / local / recreativos ] .
+
+crl [resindeicalLocal] : sistema[ residencial(persona(dinero bolsa copas "RELAJADO" entrada edad nombre ) ; personasR)  / tienda / plazaMayor / local(colaLocal personasL aforo aforomax precioRefresco precioCopa) / recreativos ]
+    => sistema[ residencial(personasR)  / tienda / plazaMayor / local(inserta-ord(colaLocal, persona(dinero bolsa copas "RELAJADO" entrada edad nombre )) personasL aforo aforomax precioRefresco precioCopa) / recreativos ]
+    if entrada /\ edad >= 18 /\ aforo < aforomax .
+rl [resindeicalRecreativos] : sistema[ residencial(persona(dinero bolsa copas "RELAJADO" entrada edad nombre ) ; personasR)  / tienda / plazaMayor / local / recreativos(personasJ) ]
+    => sistema[ residencial(personasR)  / tienda / plazaMayor / local / recreativos(personasJ ; persona(dinero bolsa copas "RELAJADO" entrada edad nombre )) ] .
+***{sistema[residencial(pv) / tienda(7 cola(persona(20 bv 0 "RELAJADO" false 16 "Rodrigo") cola(persona(30 bv 0 "RELAJADO" false 18 "Daniel") cola(persona(50 bv 0 "RELAJADO" false
+***    18 "Alberto") cola(persona(80 bv 0 "RELAJADO" false 34 "Adrian") persona(100 bv 0 "RELAJADO" false 45 "Fabero"))))) true 10 10 10) / plazamayor(persona(0 bv 0 "TRABAJANDO" false 18 "Billy") 5 5) /
+*** local(lv persona(0 bv 0 "TRABAJANDO" true 30 "Bokencio") 0 50 7 10) / recreativos(pv)],deadlock})
+
+crl [atenderTienda] : sistema[residencial(personasR) / tienda(precio cola( persona(dinero bolsa(hieloB refrescoB alcoholB) copas estadoP entrada edad nombre ) cola ) true hielo refresco alcohol) / plazamayor( ( personasP ) entradas precioEntrada) / local / recreativos ] 
+    => sistema[residencial(personasR) / tienda(precio cola  true sd(hielo,1) sd(refresco,1) sd(alcohol,1)) / plazamayor( ( persona( sd(dinero,precio) bolsa((hieloB + 1) (refrescoB + 1) (alcoholB + 1)) copas estadoP entrada edad nombre ); personasP ) entradas precioEntrada)  / local / recreativos ] 
+      if hielo >= 1 /\ dinero >= precio .
+
+rl [salirTiendaCerrada] : sistema[residencial(personasR) / tienda(precio cola(cola' cola( persona(dinero bolsa copas estadoP entrada edad nombre ) cola ) ) false hielo refresco alcohol) / plazamayor( ( personasP ) entradas precioEntrada) / local / recreativos ] 
+    => sistema[residencial(personasR) / tienda(precio cola  false hielo refresco alcohol) / plazamayor( ( persona( dinero bolsa copas estadoP entrada edad nombre ); personasP ) entradas precioEntrada)  / local / recreativos ] .
+
+crl [cerrarTienda] : sistema[residencial(personasR) / tienda(precio cola true hielo refresco alcohol) / plazaMayor / local / recreativos ] 
+    => sistema[residencial(personasR) / tienda(precio cola  false hielo refresco alcohol) / plazaMayor / local / recreativos ] 
+     if hielo == 0 .
+
+
+***solo se roba hielo y refresco cuando no disponemos de ellos (y sol)
+***son cazadores natos, por lo que al ser personas conmutativo nos vamos moviendo y robamos(SOLO SI NO TENEMOS EXISTENCIAS, YA QUE NO SOMOS TAN MALAS PERSONAS, Y SOLO PARA USO EXCLUSIVO DE COPAS)
+***También nada mas robar se sirven una copa, ya que estan sedientos
+crl [robar] : sistema[residencial(personasR) / tienda / plazamayor( ( persona( dinero bolsa(hieloB refrescoB alcoholB) copas estadoP entrada edad nombre ); persona( dinero' bolsa(hieloB' refrescoB' alcoholB') copas' estadoP' entrada' edad' nombre') ; personasP) entradas precioEntrada)  / local / recreativos ] 
+    => sistema[residencial(personasR) / tienda / plazamayor( ( hidalgo(persona( dinero bolsa((hieloB) (refrescoB) sd(alcoholB,1)) (copas + 1) estadoP entrada edad nombre )) ;  persona( dinero' bolsa(sd(hieloB',1) sd(refrescoB',1) alcoholB') copas' estadoP' entrada' edad' nombre') ; personasP ) entradas precioEntrada)  / local / recreativos ] 
+    if hieloB == 0 /\ refrescoB == 0 /\ alcoholB >= 1 /\ hieloB' >= 1 /\ refrescoB' >= 1 /\ not(nombre == "Billy") .
+
+crl [beberRefresco] : sistema[residencial(personasR) / tienda / plazamayor( ( persona( dinero bolsa(hieloB refrescoB alcoholB) copas estadoP entrada edad nombre ); personasP ) entradas precioEntrada)  / local / recreativos ] 
+    => sistema[residencial(personasR) / tienda / plazamayor( ( persona( dinero bolsa(sd(hieloB,1) sd(refrescoB,1) alcoholB) copas estadoP entrada edad nombre ); personasP ) entradas precioEntrada)  / local / recreativos ] 
+    if hieloB >= 1 /\ refrescoB >= 1 .
+
+crl [beberCopa] : sistema[residencial(personasR) / tienda / plazamayor( ( persona( dinero bolsa(hieloB refrescoB alcoholB) copas estadoP entrada edad nombre ); personasP ) entradas precioEntrada)  / local / recreativos ] 
+    => sistema[residencial(personasR) / tienda / plazamayor( ( hidalgo(persona( dinero bolsa(sd(hieloB,1) sd(refrescoB,1) sd(alcoholB,1)) (copas + 1) estadoP entrada edad nombre )); personasP ) entradas precioEntrada)  / local / recreativos ] 
+    if hieloB >= 1 /\ refrescoB >= 1 /\ alcoholB >= 1 /\ not(nombre == "Billy") .
+
+
+crl [venderEntrada] : sistema[residencial(personasR) / tienda / plazamayor( ( persona( dinero bolsa copas estadoP false edad nombre ); persona( dinero' bolsa' copas' estadoP' entrada' edad' "Billy") ; personasP) entradas precioEntrada)  / local / recreativos ] 
+    => sistema[residencial(personasR) / tienda / plazamayor( ( persona( sd(dinero,precioEntrada) bolsa copas estadoP true edad nombre );  persona( dinero' bolsa' copas' estadoP' entrada' edad' "Billy") ; personasP ) sd(entradas,1) (precioEntrada + 5) )  / local / recreativos ] 
+    if entradas >= 1 /\ dinero >= precioEntrada .
+
+crl [plazaLocal] :  sistema[ residencial / tienda / plazamayor( ( persona(dinero bolsa copas estadoP entrada edad nombre ) ; personasP ) entradas precioEntrada)  / local(colaLocal personasL aforo aforomax precioRefresco precioCopa) / recreativos ]
+    => sistema[ residencial  / tienda / plazamayor( (  personasP ) entradas precioEntrada) / local(inserta-ord(colaLocal, persona(dinero bolsa copas estadoP entrada edad nombre ) ) personasL aforo aforomax precioRefresco precioCopa) / recreativos ]
+    if not(nombre == "Billy") /\ entrada /\ edad >= 18 /\ aforo < aforomax .
+
+crl [plazaTienda] : sistema[ residencial / tienda(precio cola true hielo refresco alcohol) / plazamayor( ( persona(dinero bolsa copas estadoP entrada edad nombre ) ; personasP ) entradas precioEntrada)  / local / recreativos ]
+    => sistema[ residencial / tienda(precio cola(cola persona(dinero bolsa copas estadoP entrada edad nombre ) ) true hielo refresco alcohol) / plazamayor( ( personasP ) entradas precioEntrada)  / local / recreativos ] 
+    if not(nombre == "Billy") /\ dinero >= precio .
+
+crl [plazaRecreativos] : sistema[ residencial / tienda / plazamayor( ( persona(dinero bolsa copas estadoP entrada edad nombre ) ; personasP ) entradas precioEntrada)   / local / recreativos(personasJ) ]
+    => sistema[ residencial  / tienda /  plazamayor( ( personasP ) entradas precioEntrada) / local / recreativos(personasJ ; persona(dinero bolsa copas estadoP entrada edad nombre )) ] 
+    if  not(nombre == "Billy") .
+
+
+    
+rl [entraLocal] : sistema[ residencial  / tienda / plazaMayor / local((persona(dinero bolsa copas estadoP true edad nombre ) colaLocal) personasL aforo aforomax precioRefresco precioCopa) / recreativos ] 
+    => sistema[ residencial  / tienda / plazaMayor / local(colaLocal (persona(dinero bolsa(0 0 0) copas estadoP true edad nombre )  ; personasL) (aforo + 1) aforomax precioRefresco precioCopa) / recreativos ] .
+
+crl [beberCopaLocal] : sistema[ residencial  / tienda /  plazaMayor / local( colaLocal (persona(dinero bolsa copas estadoP entrada edad nombre ) ; personasL) aforo aforomax precioRefresco precioCopa) / recreativos ] 
+    => sistema[ residencial  / tienda /  plazaMayor / local(colaLocal (hidalgo(persona(sd(dinero,precioCopa) bolsa (copas + 1) estadoP entrada edad nombre )) ; personasL) aforo aforomax precioRefresco precioCopa) / recreativos ]
+    if dinero >= precioCopa /\ not(nombre == "Bokencio")     .
+
+crl [beberRefrescoaLocal] : sistema[ residencial  / tienda /  plazaMayor / local( colaLocal (persona(dinero bolsa copas estadoP entrada edad nombre ) ; personasL) aforo aforomax precioRefresco precioCopa) / recreativos ] 
+    => sistema[ residencial  / tienda /  plazaMayor / local(colaLocal (persona(sd(dinero,precioRefresco) bolsa copas estadoP entrada edad nombre ) ; personasL) aforo aforomax precioRefresco precioCopa) / recreativos ]
+    if dinero >= precioRefresco .
+***local(lv (persona(0 bv 0 "TRABAJANDO" true 30 "Bokencio") ; persona(5 bv 7 "EBRIO" true 34 "Adrian")) 1 50 7
+
+rl [encontrarteConBokencio] : sistema[ residencial(personasR) / tienda /  plazaMayor / local( colaLocal (persona(dinero' bolsa' copas' estadoP' entrada' edad' "Bokencio") ; persona(dinero bolsa copas "EBRIO" entrada edad nombre ) ; personasL) aforo aforomax precioRefresco precioCopa) / recreativos ] 
+    => sistema[ residencial(persona(dinero bolsa copas "EBRIO" entrada edad nombre ) ; personasR)  / tienda /  plazaMayor / local(colaLocal (persona(dinero' bolsa' copas' estadoP' entrada' edad' "Bokencio") ; personasL) sd(aforo,1) aforomax precioRefresco precioCopa) / recreativos ] .
+
+crl [LocalResidencial] : sistema[ residencial(personasR) / tienda /  plazaMayor / local( colaLocal (persona(dinero bolsa copas estadoP entrada edad nombre ) ; personasL) aforo aforomax precioRefresco precioCopa) / recreativos ] 
+    => sistema[ residencial(persona(dinero bolsa copas "CANSADO PERO CONTENTO" entrada edad nombre ) ; personasR)  / tienda /  plazaMayor / local(colaLocal personasL sd(aforo,1) aforomax precioRefresco precioCopa) / recreativos ]
+    if not(estadoP == "EBRIO") /\ not(nombre == "Bokencio") .
+
+rl [LocalResidencial] : sistema[ residencial(personasR) / tienda /  plazaMayor / local( colaLocal (persona(dinero bolsa copas "EBRIO" entrada edad nombre ) ; personasL) aforo aforomax precioRefresco precioCopa) / recreativos ] 
+    => sistema[ residencial(persona(dinero bolsa copas "EBRIO" entrada edad nombre ) ; personasR)  / tienda /  plazaMayor / local(colaLocal personasL sd(aforo,1) aforomax precioRefresco precioCopa) / recreativos ] .
+
+rl [jugarPartida] : sistema[ residencial(personasR) / tienda /  plazaMayor / local / recreativos(personasJ ; persona(dinero bolsa copas estadoP entrada edad nombre ) ; persona(dinero' bolsa' copas' estadoP' entrada' edad' nombre')) ] 
+    => sistema[ residencial(jugar(persona(dinero bolsa copas estadoP entrada edad nombre ) ; persona(dinero' bolsa' copas' estadoP' entrada' edad' nombre')) ; personasR)  / tienda /  plazaMayor / local / recreativos(personasJ ) ] .
+endm
+
+
+mod PROPS is
+pr SISTEMA .
+pr SATISFACTION .
+
+subsort Sistema < State .
+
+vars personasR personasP personasL personasJ : Personas .
+vars dinero dinero' copas copas' precioRefresco precioCopa edad edad'  precio hielo refresco alcohol hieloB hieloB' refrescoB refrescoB' alcoholB alcoholB' entradas precio2 aforo aforomax precioEntrada : Nat .
+vars estado nombre nombre' estadoP estadoP' : String .
+vars bolsa bolsa' : Bolsa .
+var entrada entrada' estadoT  : Bool .
+var tienda : Tienda .
+vars cola cola' : Cola .
+var residencial : Residencial .
+var plazaMayor : PlazaMayor .
+var local : Local .
+var colaLocal : ListaOrd .
+var recreativos : Recreativos .
+
+
+
+op hayGenteLocal : -> Prop [ctor] .
+ceq sistema[residencial / tienda / plazaMayor / local( colaLocal (personasL) aforo aforomax precioRefresco precioCopa) / recreativos ] |= hayGenteLocal
+    = true 
+    if aforo > 0 .
+
+op buscarPersonaLocal : String -> Prop [ctor] .
+ceq sistema[ residencial / tienda / plazaMayor / local( colaLocal (persona(dinero bolsa copas estadoP entrada edad nombre ) ; personasL) aforo aforomax precioRefresco precioCopa) / recreativos ] |= buscarPersonaLocal(nombre')
+    = true 
+    if nombre == nombre' or entradaLocal(local( colaLocal (persona(dinero bolsa copas estadoP entrada edad nombre ) ; personasL) aforo aforomax precioRefresco precioCopa), nombre') .
+***el entrada local es para mirar si el individuo esta esperando para entrar
+
+op buscarPersonaTienda : String -> Prop [ctor] .
+ceq sistema[ residencial / tienda(precio cola(cola' cola(persona(dinero bolsa copas estadoP entrada edad nombre) cola)) true hielo refresco alcohol)  / plazaMayor / local / recreativos ] |= buscarPersonaTienda(nombre')
+    = true 
+    if nombre == nombre' .
+
+op buscarPersonaRecreativos : String -> Prop [ctor] .
+ceq sistema[ residencial / tienda / plazaMayor / local / recreativos(persona( dinero bolsa copas estadoP entrada edad nombre ) ; personasR) ] |= buscarPersonaRecreativos(nombre')
+    = true 
+    if nombre == nombre' .
+
+op hayAlguienEbrio : -> Prop [ctor] .
+op hayAlguienEbrioResidencial : Residencial -> Bool . 
+op hayAlguienEbrioTienda : Tienda -> Bool . 
+op hayAlguienEbrioPlaza : PlazaMayor -> Bool . 
+op hayAlguienEbrioLocal : Local -> Bool .
+op hayAlguienEbrioDentroLocal : Local -> Bool .
+op hayAlguienEbrioRecreativos : Recreativos -> Bool .
+
+ceq sistema[residencial / tienda / plazaMayor / local / recreativos ] |= hayAlguienEbrio = true
+if  hayAlguienEbrioResidencial(residencial) or hayAlguienEbrioTienda(tienda)  or hayAlguienEbrioPlaza(plazaMayor)  or hayAlguienEbrioLocal(local)  or hayAlguienEbrioDentroLocal(local) or hayAlguienEbrioRecreativos(recreativos)  .
+
+ceq hayAlguienEbrioResidencial( residencial( persona( dinero bolsa copas estadoP entrada edad nombre ) ; personasR) ) = true 
+if estadoP == "EBRIO" .
+eq hayAlguienEbrioResidencial(residencial(persona(dinero bolsa copas estadoP entrada edad nombre ) ; personasR) ) = hayAlguienEbrioResidencial(residencial(personasR) ) .
+
+ceq hayAlguienEbrioTienda( tienda(precio cola(persona(dinero bolsa copas estadoP entrada edad nombre ) cola) true hielo refresco alcohol) ) = true 
+if estadoP == "EBRIO" .
+eq hayAlguienEbrioTienda( tienda(precio cola(persona(dinero bolsa copas estadoP entrada edad nombre ) cola) true hielo refresco alcohol) )  = hayAlguienEbrioTienda(tienda(precio cola true hielo refresco alcohol)) .
+
+ceq hayAlguienEbrioPlaza(  plazamayor( ( persona(dinero bolsa copas estadoP entrada edad nombre ) ; personasP ) entradas precioEntrada) ) = true 
+if estadoP == "EBRIO" .
+eq hayAlguienEbrioPlaza( plazamayor( ( persona(dinero bolsa copas estadoP entrada edad nombre ) ; personasP ) entradas precioEntrada) ) = hayAlguienEbrioPlaza(plazamayor(personasP entradas precioEntrada)  ) .
+
+
+ceq hayAlguienEbrioLocal(  local((persona(dinero bolsa copas estadoP entrada edad nombre ) colaLocal) personasL aforo aforomax precioRefresco precioCopa)) = true 
+if estadoP == "EBRIO" .
+eq hayAlguienEbrioLocal( local((persona(dinero bolsa copas estadoP entrada edad nombre ) colaLocal) personasL aforo aforomax precioRefresco precioCopa)) = hayAlguienEbrioLocal( local(( colaLocal) personasL aforo aforomax precioRefresco precioCopa)) .
+
+ceq hayAlguienEbrioRecreativos( recreativos( persona( dinero bolsa copas estadoP entrada edad nombre ) ; personasR) ) = true 
+if estadoP == "EBRIO" .
+eq hayAlguienEbrioRecreativos(recreativos( persona( dinero bolsa copas estadoP entrada edad nombre ) ; personasR) ) = hayAlguienEbrioRecreativos(recreativos(personasR) ) .
+
+ceq hayAlguienEbrioDentroLocal(  local(colaLocal (persona(dinero bolsa copas estadoP entrada edad nombre ) ; personasL) aforo aforomax precioRefresco precioCopa)) = true 
+if estadoP == "EBRIO" .
+
+eq hayAlguienEbrioDentroLocal( local( colaLocal (persona(dinero bolsa copas estadoP entrada edad nombre ) ; personasL) aforo aforomax precioRefresco precioCopa)) = hayAlguienEbrioDentroLocal( local(( colaLocal) personasL aforo aforomax precioRefresco precioCopa)) .
+
+
+
+
+
+
+
+
+op hayAlguienEbrio : String -> Prop [ctor] .
+op hayAlguienEbrioResidencial : Residencial String -> Bool . 
+op hayAlguienEbrioTienda : Tienda String -> Bool . 
+op hayAlguienEbrioPlaza : PlazaMayor String -> Bool . 
+op hayAlguienEbrioLocal : Local String -> Bool .
+op hayAlguienEbrioDentroLocal : Local String -> Bool .
+op hayAlguienEbrioRecreativos : Recreativos String -> Bool .
+
+ceq sistema[residencial / tienda / plazaMayor / local / recreativos ] |= hayAlguienEbrio(nombre') = true
+if  hayAlguienEbrioResidencial(residencial,nombre') or hayAlguienEbrioTienda(tienda,nombre')  or hayAlguienEbrioPlaza(plazaMayor,nombre')  or hayAlguienEbrioLocal(local,nombre') or hayAlguienEbrioDentroLocal(local,nombre') or hayAlguienEbrioRecreativos(recreativos,nombre')  .
+
+ceq hayAlguienEbrioResidencial( residencial( persona( dinero bolsa copas estadoP entrada edad nombre ) ; personasR) , nombre') = true 
+if estadoP == "EBRIO" /\ nombre == nombre' .
+eq hayAlguienEbrioResidencial(residencial(persona(dinero bolsa copas estadoP entrada edad nombre ) ; personasR) ,nombre') = hayAlguienEbrioResidencial(residencial(personasR) ,nombre' ) .
+eq hayAlguienEbrioResidencial( residencial( pv ), nombre') = false .
+
+ceq hayAlguienEbrioTienda( tienda(precio cola(persona(dinero bolsa copas estadoP entrada edad nombre ) cola) true hielo refresco alcohol) ,nombre') = true 
+if estadoP == "EBRIO" /\ nombre == nombre' .
+eq hayAlguienEbrioTienda( tienda(precio cola(persona(dinero bolsa copas estadoP entrada edad nombre ) cola) true hielo refresco alcohol) ,nombre')  = hayAlguienEbrioTienda(tienda(precio cola true hielo refresco alcohol),nombre') .
+eq hayAlguienEbrioTienda( tienda(precio cv true hielo refresco alcohol) ,nombre') = false . 
+
+ceq hayAlguienEbrioPlaza(  plazamayor( ( persona(dinero bolsa copas estadoP entrada edad nombre ) ; personasP ) entradas precioEntrada) ,nombre') = true 
+if estadoP == "EBRIO" /\ nombre == nombre' .
+eq hayAlguienEbrioPlaza( plazamayor( ( persona(dinero bolsa copas estadoP entrada edad nombre ) ; personasP ) entradas precioEntrada) ,nombre') = hayAlguienEbrioPlaza(plazamayor(personasP entradas precioEntrada),nombre'  ) .
+eq hayAlguienEbrioPlaza(  plazamayor( pv entradas precioEntrada) ,nombre') = false .
+
+ceq hayAlguienEbrioLocal(  local((persona(dinero bolsa copas estadoP entrada edad nombre ) colaLocal) personasL aforo aforomax precioRefresco precioCopa),nombre') = true 
+if estadoP == "EBRIO" /\ nombre == nombre' .
+eq hayAlguienEbrioLocal( local((persona(dinero bolsa copas estadoP entrada edad nombre ) colaLocal) personasL aforo aforomax precioRefresco precioCopa),nombre') = hayAlguienEbrioLocal( local(( colaLocal) personasL aforo aforomax precioRefresco precioCopa),nombre') .
+eq hayAlguienEbrioLocal(  local(lv personasL aforo aforomax precioRefresco precioCopa),nombre') = false . 
+
+ceq hayAlguienEbrioRecreativos( recreativos( persona( dinero bolsa copas estadoP entrada edad nombre ) ; personasR) ,nombre') = true 
+if estadoP == "EBRIO" /\ nombre == nombre' .
+eq hayAlguienEbrioRecreativos(recreativos( persona( dinero bolsa copas estadoP entrada edad nombre ) ; personasR) ,nombre') = hayAlguienEbrioRecreativos(recreativos(personasR) ,nombre') .
+eq hayAlguienEbrioRecreativos( recreativos( pv ), nombre') = false .
+
+ceq hayAlguienEbrioDentroLocal(  local(colaLocal (persona(dinero bolsa copas estadoP entrada edad nombre ) ; personasL) aforo aforomax precioRefresco precioCopa),nombre') = true 
+if estadoP == "EBRIO" /\ nombre == nombre' .
+eq hayAlguienEbrioDentroLocal( local( colaLocal (persona(dinero bolsa copas estadoP entrada edad nombre ) ; personasL) aforo aforomax precioRefresco precioCopa),nombre') = hayAlguienEbrioDentroLocal( local(( colaLocal) personasL aforo aforomax precioRefresco precioCopa),nombre') .
+eq hayAlguienEbrioDentroLocal(  local(colaLocal pv aforo aforomax precioRefresco precioCopa),nombre') = false . 
+
+
+
+
+
+
+
+op hayGentePobre : -> Prop [ctor] .
+op hayGentePobreResidencial : Residencial -> Bool . 
+op hayGentePobreTienda : Tienda -> Bool . 
+op hayGentePobrePlaza : PlazaMayor -> Bool . 
+op hayGentePobreLocal : Local -> Bool .
+op hayGentePobreDentroLocal : Local -> Bool .
+op hayGentePobreRecreativos : Recreativos -> Bool .
+
+ceq sistema[residencial / tienda / plazaMayor / local / recreativos ] |= hayGentePobre = true
+if  hayGentePobreResidencial(residencial) or hayGentePobreTienda(tienda)  or hayGentePobrePlaza(plazaMayor)  or hayGentePobreLocal(local) or hayGentePobreDentroLocal(local) or hayGentePobreRecreativos(recreativos)  .
+
+ceq hayGentePobreResidencial( residencial( persona( dinero bolsa copas estadoP entrada edad nombre ) ; personasR) ) = true 
+if dinero == 0 .
+eq hayGentePobreResidencial(residencial(persona(dinero bolsa copas estadoP entrada edad nombre ) ; personasR) ) = hayGentePobreResidencial(residencial(personasR) ) .
+
+ceq hayGentePobreTienda( tienda(precio cola(persona(dinero bolsa copas estadoP entrada edad nombre ) cola) true hielo refresco alcohol) ) = true 
+if dinero == 0 .
+eq hayGentePobreTienda( tienda(precio cola(persona(dinero bolsa copas estadoP entrada edad nombre ) cola) true hielo refresco alcohol) )  = hayGentePobreTienda(tienda(precio cola true hielo refresco alcohol)) .
+
+ceq hayGentePobrePlaza(  plazamayor( ( persona(dinero bolsa copas estadoP entrada edad nombre ) ; personasP ) entradas precioEntrada) ) = true 
+if dinero == 0 .
+eq hayGentePobrePlaza( plazamayor( ( persona(dinero bolsa copas estadoP entrada edad nombre ) ; personasP ) entradas precioEntrada) ) = hayGentePobrePlaza(plazamayor(personasP entradas precioEntrada)  ) .
+
+
+ceq hayGentePobreLocal(  local((persona(dinero bolsa copas estadoP entrada edad nombre ) colaLocal) personasL aforo aforomax precioRefresco precioCopa)) = true 
+if dinero == 0 .
+eq hayGentePobreLocal( local((persona(dinero bolsa copas estadoP entrada edad nombre ) colaLocal) personasL aforo aforomax precioRefresco precioCopa)) = hayGentePobreLocal( local(( colaLocal) personasL aforo aforomax precioRefresco precioCopa)) .
+
+ceq hayGentePobreRecreativos( recreativos( persona( dinero bolsa copas estadoP entrada edad nombre ) ; personasR) ) = true 
+if dinero == 0 .
+eq hayGentePobreRecreativos(recreativos( persona( dinero bolsa copas estadoP entrada edad nombre ) ; personasR) ) = hayGentePobreRecreativos(recreativos(personasR) ) .
+
+ceq hayGentePobreDentroLocal(  local(colaLocal (persona(dinero bolsa copas estadoP entrada edad nombre ) ; personasL) aforo aforomax precioRefresco precioCopa)) = true 
+if dinero == 0 .
+
+eq hayGentePobreDentroLocal( local( colaLocal (persona(dinero bolsa copas estadoP entrada edad nombre ) ; personasL) aforo aforomax precioRefresco precioCopa)) = hayGentePobreDentroLocal( local(( colaLocal) personasL aforo aforomax precioRefresco precioCopa)) .
+
+op tieneEntrada : String -> Prop [ctor] . 
+op entradaResidencial : Residencial String -> Bool .
+op entradaTienda : Tienda String -> Bool . 
+op entradaPlaza : PlazaMayor String -> Bool . 
+op entradaLocal : Local String -> Bool .
+op entradaDentroLocal : Local String -> Bool .
+op entradaRecreativos : Recreativos String -> Bool .
+
+
+ceq sistema[residencial / tienda / plazaMayor / local / recreativos ] |= tieneEntrada(nombre') = true
+if   entradaResidencial(residencial,nombre') or entradaTienda(tienda,nombre')  or entradaPlaza(plazaMayor,nombre')  or entradaLocal(local,nombre') or entradaDentroLocal(local,nombre') or entradaRecreativos(recreativos,nombre')  .
+
+ceq entradaResidencial( residencial( persona( dinero bolsa copas estadoP entrada edad nombre ) ; personasR) , nombre') = true 
+if entrada /\ nombre == nombre' .
+eq entradaResidencial(residencial(persona(dinero bolsa copas estadoP entrada edad nombre ) ; personasR) ,nombre') = entradaResidencial(residencial(personasR) ,nombre' ) .
+eq entradaResidencial( residencial( pv ) , nombre') = false [owise] .
+
+ceq entradaTienda( tienda(precio cola(persona(dinero bolsa copas estadoP entrada edad nombre ) cola) true hielo refresco alcohol) ,nombre') = true 
+if entrada /\ nombre == nombre' .
+eq entradaTienda( tienda(precio cola(persona(dinero bolsa copas estadoP entrada edad nombre ) cola) true hielo refresco alcohol) ,nombre')  = entradaTienda(tienda(precio cola true hielo refresco alcohol),nombre') .
+eq entradaTienda( tienda(precio cv true hielo refresco alcohol) ,nombre') = false [owise] . 
+
+ceq entradaPlaza( plazamayor( ( persona(dinero bolsa copas estadoP entrada edad nombre ) ; personasP ) entradas precioEntrada) ,nombre') = true 
+if entrada /\ nombre == nombre' .
+eq entradaPlaza( plazamayor( ( persona(dinero bolsa copas estadoP entrada edad nombre ) ; personasP ) entradas precioEntrada) ,nombre') = entradaPlaza(plazamayor(personasP entradas precioEntrada),nombre'  ) .
+eq entradaPlaza(  plazamayor( pv entradas precioEntrada) ,nombre') = false [owise] . 
+
+
+ceq entradaLocal(  local((persona(dinero bolsa copas estadoP entrada edad nombre ) colaLocal) personasL aforo aforomax precioRefresco precioCopa),nombre') = true 
+if entrada /\ nombre == nombre' .
+eq entradaLocal( local((persona(dinero bolsa copas estadoP entrada edad nombre ) colaLocal) personasL aforo aforomax precioRefresco precioCopa),nombre') = entradaLocal( local(( colaLocal) personasL aforo aforomax precioRefresco precioCopa),nombre') .
+eq entradaLocal(  local(lv personasL aforo aforomax precioRefresco precioCopa),nombre') = false [owise] . 
+
+
+ceq entradaRecreativos( recreativos( persona( dinero bolsa copas estadoP entrada edad nombre ) ; personasR) ,nombre') = true 
+if entrada /\ nombre == nombre' .
+eq entradaRecreativos(recreativos( persona( dinero bolsa copas estadoP entrada edad nombre ) ; personasR) ,nombre') = entradaRecreativos(recreativos(personasR) ,nombre') .
+eq entradaRecreativos( recreativos( pv ) , nombre') = false [owise] .
+
+ceq entradaDentroLocal(  local(colaLocal (persona(dinero bolsa copas estadoP entrada edad nombre ) ; personasL) aforo aforomax precioRefresco precioCopa),nombre') = true 
+if entrada /\ nombre == nombre' .
+eq entradaDentroLocal( local( colaLocal (persona(dinero bolsa copas estadoP entrada edad nombre ) ; personasL) aforo aforomax precioRefresco precioCopa),nombre') = entradaDentroLocal( local(( colaLocal) personasL aforo aforomax precioRefresco precioCopa),nombre') .
+eq entradaDentroLocal(  local(colaLocal pv aforo aforomax precioRefresco precioCopa),nombre') = false [owise] . 
+
+
+
+endm
+
+
+mod CHECK is
+  pr PROPS .
+  pr MODEL-CHECKER .
+  pr LTL-SIMPLIFIER .
+
+op residencial : -> Residencial .
+op tienda : -> Tienda .
+op plazaMayor : -> PlazaMayor .
+op local : -> Local .
+op recreativos : -> Recreativos .
+ops bi bo al da ro ad fa : -> Persona .
+
+eq bi =  persona(0 bolsa(0 0 0) 0 "TRABAJANDO" false 18 "Billy" ) .
+eq bo =  persona(0 bolsa(0 0 0) 0 "TRABAJANDO" false 30 "Bokencio" ) .
+eq al =  persona(16 bolsa(0 0 0) 0 "RELAJADO" false 18 "Alberto" ) .
+eq da =  persona(14 bolsa(0 0 0) 0 "RELAJADO" false 18 "Daniel" ) .
+eq ro =  persona(22 bolsa(0 0 0) 0 "RELAJADO" false 16 "Rodrigo" ) .
+eq ad =  persona(15 bolsa(0 0 0) 0 "RELAJADO" false 34 "Adrian" ) .
+eq fa =  persona(10 bolsa(0 0 0) 0 "RELAJADO" false 45 "Fabero" ) .
+
+eq residencial = residencial( al ; ro ; fa ) .
+eq tienda = tienda(7 cv true 10 10 10) .
+eq plazaMayor =  plazamayor( bi 5 5) .
+eq local = local(lv bo 0 50 7 10) .
+eq recreativos = recreativos( pv ) .
+
+op init : -> Sistema .
+eq init = sistema[residencial / tienda / plazaMayor / local / recreativos] .
+
+endm
+
+red modelCheck(init, (<>[](~ (hayGenteLocal)))) . 
+
+red modelCheck(init, [] (hayAlguienEbrio("Alberto") -> []hayAlguienEbrio("Alberto"))) .
+
+red modelCheck(init, <> buscarPersonaLocal("Alberto") /\ <> buscarPersonaRecreativos("Alberto") /\ buscarPersonaTienda("Alberto") ) .
+
+red modelCheck(init,[] (tieneEntrada("Alberto") -> <> buscarPersonaLocal("Alberto"))).
+
+red modelCheck(init,[] (buscarPersonaLocal("Alberto") -> <> tieneEntrada("Alberto") ) ) .
+
+
+red modelCheck(init,[]~ (tieneEntrada("Alberto") -> <> buscarPersonaRecreativos("Alberto"))) .
+
+red sistema[residencial(pv) / tienda(7 cv true 9 9 9) / plazamayor((persona(0 bolsa(0 0 0) 0 "TRABAJANDO" false 18 "Billy") ; persona(0 bolsa(0 0 1) 0 "RELAJADO" false 18 "Alberto")) 5 7) /
+    local(lv ( persona(0 bolsa(0 0 0) 0 "TRABAJANDO" false 30 "Bokencio") ;  persona(0 bolsa(0 0 1) 0 "RELAJADO" true 18 "Alberto") ) 0 50 7 10) / recreativos(pv)]  |= tieneEntrada("Alberto") .
+
+
+***EJERCICIO 4 
+***(
+    resindeicalTienda
+resindeicalPlaza
+resindeicalLocal
+    if entrada /\ edad >= 18 /\ aforo < aforomax .
+resindeicalRecreativos
+atenderTienda
+salirTiendaCerrada
+cerrarTienda
+robar
+beberRefresco
+beberCopa
+venderEntrada
+plazaLocal
+plazaTienda
+plazaRecreativos
+entraLocal
+beberCopaLocal
+beberRefrescoaLocal
+encontrarteConBokencio
+LocalResidencial
+LocalResidencial
+jugarPartida
+
+Reglas que afectan a cada propiedad :
+Hay gente en el local de moda.
+    resindeicalLocal
+    plazaLocal
+    encontrarteConBokencio
+    LocalResidencial
+
+Una persona concreta está en el local de moda.
+    resindeicalLocal
+    plazaLocal
+    encontrarteConBokencio
+    LocalResidencial
+
+Una persona concreta está en la tienda.
+    resindeicalTienda
+    plazaTienda
+    atenderTienda
+    salirTiendaCerrada
+
+Una persona concreta está en los recreativos.
+    resindeicalRecreativos
+    plazaRecreativos
+    jugarPartida
+
+Hay alguien ebrio (en cualquier lugar).
+    robar
+    beberCopa
+    beberCopaLocal
+
+Hay alguien concreto ebrio (en cualquier lugar).
+    robar
+    beberCopa
+    beberCopaLocal
+
+Hay alguien que se ha quedado sin dinero.
+    atenderTienda
+    venderEntrada
+    beberCopaLocal
+    beberRefrescoaLocal
+
+Hay alguien concreto con entrada
+    venderEntrada
+
+POR LO TANTO, AQUELLAS REGLAS QUE NO SE UTILIZAN Y PODRÍAN SUSTITUIRSE POR ECUACIONES SON : 
+    resindeicalPlaza
+    cerrarTienda
+    beberRefresco
+    entraLocal
+)
